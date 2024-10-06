@@ -1,11 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Grid, Typography, Button, TextField, Paper, Divider, Box, Alert } from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import './App.css'; // Optional CSS file for custom tweaks
-
-const initialProjects = require('./projects.json'); // Your JSON file with projects/members
+import React, { useState, useEffect } from "react";
+import {
+  Grid,
+  Typography,
+  Button,
+  TextField,
+  Paper,
+  Divider,
+  Box,
+  Alert,
+  AppBar,
+  Toolbar,
+} from "@mui/material";
+import SaveIcon from "@mui/icons-material/Save";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
+import "./App.css"; // Optional CSS file for custom tweaks
+import JsonEditorModal from "./JsonEditorModal"; // Import the modal component
 
 const App = () => {
   const [selectedProject, setSelectedProject] = useState(null);
@@ -14,13 +24,29 @@ const App = () => {
   const [isRunning, setIsRunning] = useState(false); // Controls if the timer is running
   const [dailyData, setDailyData] = useState({});
   const [form, setForm] = useState({
-    fait: '',
-    remarques: '',
-    aFaire: ''
+    fait: "",
+    remarques: "",
+    aFaire: "",
   });
-  const [faitPar, setFaitPar] = useState('');
+  const [faitPar, setFaitPar] = useState("");
   const [isFormEnabled, setIsFormEnabled] = useState(false); // Disable form until "Fait par" is filled
   const [showThanksMessage, setShowThanksMessage] = useState(false); // For thank-you message after download
+  const [isEditorOpen, setIsEditorOpen] = useState(false); // Modal for the JSON editor
+  const [projectsData, setProjectsData] = useState(); // Will store the projects data fetched from the backend
+
+  // Fetch projects data from the backend
+  useEffect(() => {
+    fetch(process.env.REACT_APP_API_URL)
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("DATA", data);
+        setProjectsData(data);
+      })
+      .catch((error) => {
+        console.log(error);
+        console.error("Error fetching projects data:", error);
+      });
+  }, []);
 
   // Timer logic
   useEffect(() => {
@@ -55,17 +81,49 @@ const App = () => {
   const handleProjectChange = (projectName) => {
     setSelectedProject(projectName);
     setSelectedMember(null);
-    setForm({ fait: '', remarques: '', aFaire: '' }); // Reset the form
+    setForm({ fait: "", remarques: "", aFaire: "" }); // Reset the form
     handleReset(); // Reset the timer and stop it
+  };
+
+  // Open the JSON editor modal
+  const handleOpenEditor = () => {
+    setIsEditorOpen(true);
+  };
+
+  // Close the JSON editor modal
+  const handleCloseEditor = () => {
+    setIsEditorOpen(false);
+  };
+
+  // Save the updated JSON to the backend
+  const handleSaveJson = (updatedJson) => {
+    fetch(process.env.REACT_APP_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updatedJson),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("Projects updated:", data);
+        setProjectsData(updatedJson); // Update the state with the new projects
+        setIsEditorOpen(false); // Close the modal
+      })
+      .catch((error) => {
+        console.error("Error saving projects data:", error);
+      });
   };
 
   // Move to the next member automatically
   const moveToNextMember = () => {
-    const project = initialProjects.projects.find((p) => p.name === selectedProject);
+    const project = projectsData.projects.find(
+      (p) => p.name === selectedProject
+    );
     const currentIndex = project.members.indexOf(selectedMember);
     if (currentIndex + 1 < project.members.length) {
       setSelectedMember(project.members[currentIndex + 1]);
-      setForm({ fait: '', remarques: '', aFaire: '' });
+      setForm({ fait: "", remarques: "", aFaire: "" });
     }
   };
 
@@ -74,8 +132,8 @@ const App = () => {
       ...prev,
       [selectedProject]: {
         ...prev[selectedProject],
-        [selectedMember]: { ...form, completed: true }
-      }
+        [selectedMember]: { ...form, completed: true },
+      },
     }));
     moveToNextMember();
   };
@@ -85,8 +143,13 @@ const App = () => {
       ...prev,
       [selectedProject]: {
         ...prev[selectedProject],
-        [selectedMember]: { fait: 'Absent', remarques: '', aFaire: '', completed: true }
-      }
+        [selectedMember]: {
+          fait: "Absent",
+          remarques: "",
+          aFaire: "",
+          completed: true,
+        },
+      },
     }));
     moveToNextMember();
   };
@@ -99,15 +162,18 @@ const App = () => {
           .map(([member, data]) => {
             return `${member}:\n  Fait: ${data.fait}\n  Remarques: ${data.remarques}\n  A faire: ${data.aFaire}\n`;
           })
-          .join('\n');
+          .join("\n");
         return `- ${project}:\n${membersText}`;
       })
-      .join('\n\n');
+      .join("\n\n");
 
-    const blob = new Blob([`\`\`\`js\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n\`\`\``], { type: 'text/plain' });
-    const link = document.createElement('a');
+    const blob = new Blob(
+      [`\`\`\`js\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n\`\`\``],
+      { type: "text/plain" }
+    );
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = 'daily.txt';
+    link.download = "daily.txt";
     link.click();
 
     // Show thank-you message after download
@@ -117,16 +183,21 @@ const App = () => {
   const formatTime = (seconds) => {
     const min = Math.floor(seconds / 60);
     const sec = seconds % 60;
-    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+    return `${min}:${sec < 10 ? "0" : ""}${sec}`;
   };
 
   const isMemberCompleted = (project, member) => {
-    return dailyData[project] && dailyData[project][member] && dailyData[project][member].completed;
+    return (
+      dailyData[project] &&
+      dailyData[project][member] &&
+      dailyData[project][member].completed
+    );
   };
 
   const isProjectCompleted = (project) => {
-    const members = initialProjects.projects.find(p => p.name === project)?.members || [];
-    return members.every(member => isMemberCompleted(project, member));
+    const members =
+      projectsData?.projects.find((p) => p.name === project)?.members || [];
+    return members.every((member) => isMemberCompleted(project, member));
   };
 
   const handleFaitParSubmit = () => {
@@ -136,88 +207,162 @@ const App = () => {
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <Typography variant="h4" align="center" style={{ marginBottom: '20px' }}>
-        Everbloo Daily
-      </Typography>
+    <div style={{ padding: "20px" }}>
+      <Box sx={{ flexGrow: 1, marginBottom: "10px" }}>
+        <AppBar position="static">
+          <Toolbar>
+            <Typography
+              variant="h6"
+              noWrap
+              component="div"
+              sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }}
+            >
+              Everbloo Daily
+            </Typography>
+            <Button color="inherit" onClick={handleOpenEditor}>
+              Edit Members
+            </Button>
+          </Toolbar>
+        </AppBar>
+      </Box>
 
       {/* Main Grid Layout */}
       <Grid container spacing={2}>
-
         {/* Projects and Timer Column */}
         <Grid item xs={3}>
-          <Paper style={{ padding: '20px', height: '100%' }}>
+          <Paper style={{ padding: "20px", height: "100%" }}>
             <Typography variant="h6">Projects</Typography>
-            {initialProjects.projects.map((project) => (
-              <div key={project.name} style={{ marginBottom: '10px' }}>
+            {projectsData?.projects?.map((project) => (
+              <div key={project.name} style={{ marginBottom: "10px" }}>
                 <Typography
                   variant="subtitle1"
                   onClick={() => handleProjectChange(project.name)}
-                  style={{ cursor: 'pointer', fontWeight: selectedProject === project.name ? 'bold' : 'normal' }}
+                  style={{
+                    cursor: "pointer",
+                    fontWeight:
+                      selectedProject === project.name ? "bold" : "normal",
+                  }}
                 >
-                  {project.name} {isProjectCompleted(project.name) ? <CheckCircleIcon color="success" /> : <HourglassEmptyIcon color="warning" />}
+                  {project.name}{" "}
+                  {isProjectCompleted(project.name) ? (
+                    <CheckCircleIcon color="success" />
+                  ) : (
+                    <HourglassEmptyIcon color="warning" />
+                  )}
                 </Typography>
                 {project.name === selectedProject && (
-                  <div style={{ marginLeft: '20px' }}>
+                  <div style={{ marginLeft: "20px" }}>
                     {project.members.map((member) => (
                       <Box
                         key={member}
                         display="flex"
                         alignItems="center"
                         style={{
-                          marginBottom: '10px',
-                          backgroundColor: selectedMember === member ? '#e0f7fa' : 'inherit',
-                          padding: '5px',
-                          borderRadius: '5px'
+                          marginBottom: "10px",
+                          backgroundColor:
+                            selectedMember === member ? "#e0f7fa" : "inherit",
+                          padding: "5px",
+                          borderRadius: "5px",
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#b2ebf2')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = selectedMember === member ? '#e0f7fa' : 'inherit')}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.backgroundColor = "#b2ebf2")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.backgroundColor =
+                            selectedMember === member ? "#e0f7fa" : "inherit")
+                        }
                         onClick={() => setSelectedMember(member)}
                       >
                         <Typography
                           variant="body2"
-                          style={{ cursor: 'pointer', marginRight: '10px' }}
+                          style={{ cursor: "pointer", marginRight: "10px" }}
                         >
                           {member}
                         </Typography>
-                        {isMemberCompleted(project.name, member) ? <CheckCircleIcon color="success" /> : <HourglassEmptyIcon color="warning" />}
+                        {isMemberCompleted(project.name, member) ? (
+                          <CheckCircleIcon color="success" />
+                        ) : (
+                          <HourglassEmptyIcon color="warning" />
+                        )}
                       </Box>
                     ))}
                   </div>
                 )}
               </div>
             ))}
-            <Divider style={{ margin: '20px 0' }} />
+            <Divider style={{ margin: "20px 0" }} />
             <Typography variant="h6" align="center">
               Timer: {formatTime(timer)}
             </Typography>
-            <Grid container spacing={1} justifyContent="center" style={{ marginTop: '10px' }}>
+            <Grid
+              container
+              spacing={1}
+              justifyContent="center"
+              style={{ marginTop: "10px" }}
+            >
               <Grid item>
-                <Button variant="contained" onClick={() => handleTimerChange(300)} disabled={!isFormEnabled}>+5MIN</Button>
+                <Button
+                  variant="contained"
+                  onClick={() => handleTimerChange(300)}
+                  disabled={!isFormEnabled}
+                >
+                  +5MIN
+                </Button>
               </Grid>
               <Grid item>
-                <Button variant="contained" onClick={() => handleTimerChange(-300)} disabled={!isFormEnabled}>-5MIN</Button>
+                <Button
+                  variant="contained"
+                  onClick={() => handleTimerChange(-300)}
+                  disabled={!isFormEnabled}
+                >
+                  -5MIN
+                </Button>
               </Grid>
               <Grid item>
-                <Button variant="contained" onClick={handleReset} disabled={!isFormEnabled}>RESET</Button>
+                <Button
+                  variant="contained"
+                  onClick={handleReset}
+                  disabled={!isFormEnabled}
+                >
+                  RESET
+                </Button>
               </Grid>
             </Grid>
 
             {/* Timer Control Buttons */}
-            <Grid container spacing={1} justifyContent="center" style={{ marginTop: '10px' }}>
+            <Grid
+              container
+              spacing={1}
+              justifyContent="center"
+              style={{ marginTop: "10px" }}
+            >
               <Grid item>
-                <Button variant="outlined" color="primary" onClick={handleStart} disabled={!isFormEnabled || isRunning}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleStart}
+                  disabled={!isFormEnabled || isRunning}
+                >
                   START
                 </Button>
               </Grid>
               <Grid item>
-                <Button variant="outlined" color="secondary" onClick={handleStop} disabled={!isFormEnabled || !isRunning}>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleStop}
+                  disabled={!isFormEnabled || !isRunning}
+                >
                   STOP
                 </Button>
               </Grid>
             </Grid>
 
-            <Button onClick={handleDownload} style={{ marginTop: '20px', width: '100%' }} disabled={!isFormEnabled}>
+            <Button
+              onClick={handleDownload}
+              style={{ marginTop: "20px", width: "100%" }}
+              disabled={!isFormEnabled}
+            >
               DOWNLOAD
             </Button>
           </Paper>
@@ -226,9 +371,11 @@ const App = () => {
         {/* Form Column */}
         <Grid item xs={9}>
           {showThanksMessage ? (
-            <Alert severity="success">Thanks for your time and have a good day!</Alert>
+            <Alert severity="success">
+              Thanks for your time and have a good day!
+            </Alert>
           ) : (
-            <Paper style={{ padding: '20px' }}>
+            <Paper style={{ padding: "20px" }}>
               {selectedProject && selectedMember ? (
                 <>
                   <Typography variant="h6">
@@ -241,7 +388,7 @@ const App = () => {
                     fullWidth
                     value={form.fait}
                     onChange={(e) => setForm({ ...form, fait: e.target.value })}
-                    style={{ marginBottom: '15px' }}
+                    style={{ marginBottom: "15px" }}
                     disabled={!isFormEnabled}
                   />
                   <TextField
@@ -250,8 +397,10 @@ const App = () => {
                     rows={4}
                     fullWidth
                     value={form.remarques}
-                    onChange={(e) => setForm({ ...form, remarques: e.target.value })}
-                    style={{ marginBottom: '15px' }}
+                    onChange={(e) =>
+                      setForm({ ...form, remarques: e.target.value })
+                    }
+                    style={{ marginBottom: "15px" }}
                     disabled={!isFormEnabled}
                   />
                   <TextField
@@ -260,8 +409,10 @@ const App = () => {
                     rows={4}
                     fullWidth
                     value={form.aFaire}
-                    onChange={(e) => setForm({ ...form, aFaire: e.target.value })}
-                    style={{ marginBottom: '15px' }}
+                    onChange={(e) =>
+                      setForm({ ...form, aFaire: e.target.value })
+                    }
+                    style={{ marginBottom: "15px" }}
                     disabled={!isFormEnabled}
                   />
                   <Grid container spacing={2}>
@@ -297,7 +448,12 @@ const App = () => {
       </Grid>
 
       {/* Fait par Input Section */}
-      <Grid container spacing={2} justifyContent="center" style={{ marginTop: '20px' }}>
+      <Grid
+        container
+        spacing={2}
+        justifyContent="center"
+        style={{ marginTop: "20px" }}
+      >
         <Grid item xs={6}>
           <TextField
             label="Fait par"
@@ -307,11 +463,21 @@ const App = () => {
           />
         </Grid>
         <Grid item>
-          <Button variant="contained" onClick={handleFaitParSubmit} disabled={isFormEnabled || !faitPar.trim()}>
+          <Button
+            variant="contained"
+            onClick={handleFaitParSubmit}
+            disabled={isFormEnabled || !faitPar.trim()}
+          >
             Submit
           </Button>
         </Grid>
       </Grid>
+      <JsonEditorModal
+        open={isEditorOpen}
+        handleClose={handleCloseEditor}
+        jsonData={projectsData}
+        handleSave={handleSaveJson}
+      />
     </div>
   );
 };
