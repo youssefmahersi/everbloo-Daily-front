@@ -36,7 +36,7 @@ const App = () => {
 
   // Fetch projects data from the backend
   useEffect(() => {
-    fetch(process.env.REACT_APP_API_URL)
+    fetch(process.env.REACT_APP_API_URL + "/api/projects")
       .then((response) => response.json())
       .then((data) => {
         console.log("DATA", data);
@@ -97,7 +97,7 @@ const App = () => {
 
   // Save the updated JSON to the backend
   const handleSaveJson = (updatedJson) => {
-    fetch(process.env.REACT_APP_API_URL, {
+    fetch(process.env.REACT_APP_API_URL + "/api/projects", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
