@@ -36,7 +36,7 @@ const App = () => {
 
   // Fetch projects data from the backend
   useEffect(() => {
-    fetch("everbloo-daily-back.vercel.app/api/projects")
+    fetch("https://everbloo-daily-back.vercel.app/api/projects")
       .then((response) => response.json())
       .then((data) => {
         console.log("DATA", data);
@@ -97,7 +97,7 @@ const App = () => {
 
   // Save the updated JSON to the backend
   const handleSaveJson = (updatedJson) => {
-    fetch("everbloo-daily-back.vercel.app/api/projects", {
+    fetch("https://everbloo-daily-back.vercel.app/api/projects", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
