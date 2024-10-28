@@ -387,7 +387,13 @@ const App = () => {
                     rows={4}
                     fullWidth
                     value={form.fait}
-                    onChange={(e) => setForm({ ...form, fait: e.target.value })}
+                    onChange={(e) => {
+                      if(isRunning== false){
+                        setIsRunning(true)
+                      }
+                      setForm({ ...form, fait: e.target.value })
+                    }
+                  }
                     style={{ marginBottom: "15px" }}
                     disabled={!isFormEnabled}
                   />
