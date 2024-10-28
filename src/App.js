@@ -168,7 +168,7 @@ const App = () => {
       .join("\n\n");
 
     const blob = new Blob(
-      [`\`\`\`js\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n\`\`\``],
+      [`\`\`\`yml\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n\`\`\``],
       { type: "text/plain" }
     );
     const link = document.createElement("a");
