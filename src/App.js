@@ -166,14 +166,22 @@ const App = () => {
         return `- ${project}:\n${membersText}`;
       })
       .join("\n\n");
+    const fileContent = `\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n`;
+    let blob = null;
+    let fileName = "daily.txt";
 
-    const blob = new Blob(
-      [`\`\`\`yml\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n\`\`\``],
-      { type: "text/plain" }
-    );
+    if (fileContent.length < 1200) {
+      fileName = "daily.txt";
+      blob = new Blob([`\`\`\`yml\n${fileContent}\n\`\`\``], {
+        type: "text/plain",
+      });
+    } else {
+      fileName = "daily.yml";
+      blob = new Blob([fileContent], { type: "text/plain" });
+    }
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "daily.txt";
+    link.download = fileName;
     link.click();
 
     // Show thank-you message after download
@@ -388,12 +396,11 @@ const App = () => {
                     fullWidth
                     value={form.fait}
                     onChange={(e) => {
-                      if(isRunning== false){
-                        setIsRunning(true)
+                      if (isRunning == false) {
+                        setIsRunning(true);
                       }
-                      setForm({ ...form, fait: e.target.value })
-                    }
-                  }
+                      setForm({ ...form, fait: e.target.value });
+                    }}
                     style={{ marginBottom: "15px" }}
                     disabled={!isFormEnabled}
                   />
