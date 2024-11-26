@@ -160,6 +160,9 @@ const App = () => {
       .map(([project, members]) => {
         const membersText = Object.entries(members)
           .map(([member, data]) => {
+            if(data.fait === "Absent"){
+              return `${member}:\n  Fait: ${data.fait}\n`;
+            }
             return `${member}:\n  Fait: ${data.fait}\n  Remarques: ${data.remarques}\n  A faire: ${data.aFaire}\n`;
           })
           .join("\n");
@@ -170,7 +173,7 @@ const App = () => {
     let blob = null;
     let fileName = "daily.txt";
 
-    if (fileContent.length < 1200) {
+    if (fileContent.length < 2000) {
       fileName = "daily.txt";
       blob = new Blob([`\`\`\`yml\n${fileContent}\n\`\`\``], {
         type: "text/plain",
