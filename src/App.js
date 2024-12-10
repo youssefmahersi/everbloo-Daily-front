@@ -398,13 +398,6 @@ const handleCopyToClipboard = () => {
               </Grid>
             </Grid>
 
-            // <Button
-            //   onClick={handleDownload}
-            //   style={{ marginTop: "20px", width: "100%" }}
-            //   disabled={!isFormEnabled}
-            // >
-            //   DOWNLOAD
-            // </Button>
             <Button
               onClick={handleCopyToClipboard}
               style={{ marginTop: "20px", width: "100%" }}
