@@ -154,13 +154,49 @@ const App = () => {
     moveToNextMember();
   };
 
-  const handleDownload = () => {
+  // const handleDownload = () => {
+  //   const today = new Date().toLocaleDateString(); // Get today's date
+  //   const textData = Object.entries(dailyData)
+  //     .map(([project, members]) => {
+  //       const membersText = Object.entries(members)
+  //         .map(([member, data]) => {
+  //           if(data.fait === "Absent"){
+  //             return `${member}:\n  Fait: ${data.fait}\n`;
+  //           }
+  //           return `${member}:\n  Fait: ${data.fait}\n  Remarques: ${data.remarques}\n  A faire: ${data.aFaire}\n`;
+  //         })
+  //         .join("\n");
+  //       return `- ${project}:\n${membersText}`;
+  //     })
+  //     .join("\n\n");
+  //   const fileContent = `\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n`;
+  //   let blob = null;
+  //   let fileName = "daily.txt";
+
+  //   if (fileContent.length < 2000) {
+  //     fileName = "daily.txt";
+  //     blob = new Blob([`\`\`\`yml\n${fileContent}\n\`\`\``], {
+  //       type: "text/plain",
+  //     });
+  //   } else {
+  //     fileName = "daily.yml";
+  //     blob = new Blob([fileContent], { type: "text/plain" });
+  //   }
+  //   const link = document.createElement("a");
+  //   link.href = URL.createObjectURL(blob);
+  //   link.download = fileName;
+  //   link.click();
+
+  //   // Show thank-you message after download
+  //   setShowThanksMessage(true);
+  // };
+const handleCopyToClipboard = () => {
     const today = new Date().toLocaleDateString(); // Get today's date
     const textData = Object.entries(dailyData)
       .map(([project, members]) => {
         const membersText = Object.entries(members)
           .map(([member, data]) => {
-            if(data.fait === "Absent"){
+            if (data.fait === "Absent") {
               return `${member}:\n  Fait: ${data.fait}\n`;
             }
             return `${member}:\n  Fait: ${data.fait}\n  Remarques: ${data.remarques}\n  A faire: ${data.aFaire}\n`;
@@ -169,26 +205,19 @@ const App = () => {
         return `- ${project}:\n${membersText}`;
       })
       .join("\n\n");
-    const fileContent = `\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n`;
-    let blob = null;
-    let fileName = "daily.txt";
-
-    if (fileContent.length < 2000) {
-      fileName = "daily.txt";
-      blob = new Blob([`\`\`\`yml\n${fileContent}\n\`\`\``], {
-        type: "text/plain",
+  
+    const fileContent = `\`\`\`yml\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n\`\`\``;
+  
+    // Copy the content to clipboard
+    navigator.clipboard
+      .writeText(fileContent)
+      .then(() => {
+        // Show thank-you message after copying
+        setShowThanksMessage(true);
+      })
+      .catch((error) => {
+        console.error("Error copying to clipboard:", error);
       });
-    } else {
-      fileName = "daily.yml";
-      blob = new Blob([fileContent], { type: "text/plain" });
-    }
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = fileName;
-    link.click();
-
-    // Show thank-you message after download
-    setShowThanksMessage(true);
   };
 
   const formatTime = (seconds) => {
@@ -369,12 +398,18 @@ const App = () => {
               </Grid>
             </Grid>
 
+            // <Button
+            //   onClick={handleDownload}
+            //   style={{ marginTop: "20px", width: "100%" }}
+            //   disabled={!isFormEnabled}
+            // >
+            //   DOWNLOAD
+            // </Button>
             <Button
-              onClick={handleDownload}
+              onClick={handleCopyToClipboard}
               style={{ marginTop: "20px", width: "100%" }}
-              disabled={!isFormEnabled}
-            >
-              DOWNLOAD
+              disabled={!isFormEnabled}>
+              COPY TO CLIPBOARD
             </Button>
           </Paper>
         </Grid>
