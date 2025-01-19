@@ -35,50 +35,23 @@ const App = () => {
   const [showThanksMessage, setShowThanksMessage] = useState(false); // For thank-you message after download
   const [isEditorOpen, setIsEditorOpen] = useState(false); // Modal for the JSON editor
   const [projectsData, setProjectsData] = useState(); // Will store the projects data fetched from the backend
-
-  // Fetch projects data from the backend
-  // useEffect(() => {
-  //   fetch("https://everbloo-daily-back.vercel.app/api/projects")
-  //     .then((response) => response.json())
-  //     .then((data) => {
-  //       console.log("DATA", data);
-  //       setProjectsData(data);
-  //     })
-  //     .catch((error) => {
-  //       console.log(error);
-  //       console.error("Error fetching projects data:", error);
-  //     });
-  // }, []);
-  useEffect(() => {
-    const fetchProjectsFromFirebase = async () => {
-      try {
-        // Assuming you have a collection named "projects"
-        // that contains a single document with fields like:
-        // {
-        //   projects: [
-        //     { name: "Metis France", members: [...] },
-        //     { name: "Metis Tunis", members: [...] },
-        //     ...
-        //   ]
-        // }
-        const querySnapshot = await getDocs(collection(db, "dailyProjects"));
-        // We expect only one doc with the "projects" array,
-        // or you can adapt this logic if you have multiple docs
-        const docs = querySnapshot.docs.map((doc) => doc.data());
-        // If your structure is literally one doc with a "projects" field:
-        if (docs.length > 0) {
-          // Suppose the first doc has the shape { projects: [...] }
-          setProjectsData(docs[0]); 
-        }
-      } catch (error) {
-        console.error("Error fetching projects data:", error);
+  const fetchProjectsFromFirebase = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "dailyProjects"));
+      const docs = querySnapshot.docs.map((doc) => doc.data());
+      if (docs.length > 0) {
+        setProjectsData(docs[0]);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching projects data:", error);
+    }
+  };
+  useEffect(() => {
+
 
     fetchProjectsFromFirebase();
   }, []);
 
-  // Timer logic
   useEffect(() => {
     let interval = null;
     if (isRunning && timer > 0) {
@@ -86,7 +59,7 @@ const App = () => {
         setTimer((prev) => prev - 1);
       }, 1000);
     } else if (timer === 0) {
-      setIsRunning(false); // Stop the timer when it reaches 0
+      setIsRunning(false);
     }
     return () => clearInterval(interval);
   }, [isRunning, timer]);
@@ -123,27 +96,9 @@ const App = () => {
   // Close the JSON editor modal
   const handleCloseEditor = () => {
     setIsEditorOpen(false);
-  };
+    fetchProjectsFromFirebase(); // Fetch the updated projects data
 
-  // Save the updated JSON to the backend
-  // const handleSaveJson = (updatedJson) => {
-  //   fetch("https://everbloo-daily-back.vercel.app/api/projects", {
-  //     method: "POST",
-  //     headers: {
-  //       "Content-Type": "application/json",
-  //     },
-  //     body: JSON.stringify(updatedJson),
-  //   })
-  //     .then((response) => response.json())
-  //     .then((data) => {
-  //       console.log("Projects updated:", data);
-  //       setProjectsData(updatedJson); // Update the state with the new projects
-  //       setIsEditorOpen(false); // Close the modal
-  //     })
-  //     .catch((error) => {
-  //       console.error("Error saving projects data:", error);
-  //     });
-  // };
+  };
 
   // Move to the next member automatically
   const moveToNextMember = () => {
@@ -220,7 +175,7 @@ const App = () => {
   //   // Show thank-you message after download
   //   setShowThanksMessage(true);
   // };
-const handleCopyToClipboard = () => {
+  const handleCopyToClipboard = () => {
     const today = new Date().toLocaleDateString(); // Get today's date
     const textData = Object.entries(dailyData)
       .map(([project, members]) => {
@@ -235,19 +190,31 @@ const handleCopyToClipboard = () => {
         return `- ${project}:\n${membersText}`;
       })
       .join("\n\n");
-  
-    const fileContent = `\`\`\`yml\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n\`\`\``;
-  
-    // Copy the content to clipboard
-    navigator.clipboard
-      .writeText(fileContent)
-      .then(() => {
-        // Show thank-you message after copying
-        setShowThanksMessage(true);
-      })
-      .catch((error) => {
-        console.error("Error copying to clipboard:", error);
-      });
+
+      let fileContent = `\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n`;
+    console.log(fileContent, "fileContent")
+    if (fileContent.length > 2000) {
+      let fileName = "daily.yml";
+      let blob = new Blob([fileContent], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      link.click();
+      setShowThanksMessage(true);
+    } else {
+      fileContent = `\`\`\`yml\n${fileContent}\n\`\`\``;
+      // Copy the content to clipboard
+      navigator.clipboard
+        .writeText(fileContent)
+        .then(() => {
+          // Show thank-you message after copying
+          setShowThanksMessage(true);
+        })
+        .catch((error) => {
+          console.error("Error copying to clipboard:", error);
+        });
+    }
+
   };
 
   const formatTime = (seconds) => {
@@ -338,8 +305,8 @@ const handleCopyToClipboard = () => {
                           (e.currentTarget.style.backgroundColor = "#b2ebf2")
                         }
                         onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor =
-                            selectedMember === member ? "#e0f7fa" : "inherit")
+                        (e.currentTarget.style.backgroundColor =
+                          selectedMember === member ? "#e0f7fa" : "inherit")
                         }
                         onClick={() => setSelectedMember(member)}
                       >
@@ -432,7 +399,7 @@ const handleCopyToClipboard = () => {
               onClick={handleCopyToClipboard}
               style={{ marginTop: "20px", width: "100%" }}
               disabled={!isFormEnabled}>
-              COPY TO CLIPBOARD
+              COPY / DOWNLOAD
             </Button>
           </Paper>
         </Grid>
@@ -547,11 +514,11 @@ const handleCopyToClipboard = () => {
         </Grid>
       </Grid>
       <JsonEditorModal
-  open={isEditorOpen}
-  handleClose={handleCloseEditor}
-  collectionPath="dailyProjects" // Firestore collection path
-  docId="FQ6HYMt3zmSnmManRtwe" // Firestore document ID
-/>
+        open={isEditorOpen}
+        handleClose={handleCloseEditor}
+        collectionPath="dailyProjects" // Firestore collection path
+        docId="FQ6HYMt3zmSnmManRtwe" // Firestore document ID
+      />
     </div>
   );
 };
