@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import {
   Grid,
   Typography,
@@ -22,7 +23,7 @@ import { db } from "./firebase"; // <-- Path to your firebase config file
 const App = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
-  const [timer, setTimer] = useState(600); // 10 minutes in seconds
+  const [timer, setTimer] = useState(900); // 10 minutes in seconds
   const [isRunning, setIsRunning] = useState(false); // Controls if the timer is running
   const [dailyData, setDailyData] = useState({});
   const [form, setForm] = useState({
@@ -85,7 +86,6 @@ const App = () => {
     setSelectedProject(projectName);
     setSelectedMember(null);
     setForm({ fait: "", remarques: "", aFaire: "" }); // Reset the form
-    handleReset(); // Reset the timer and stop it
   };
 
   // Open the JSON editor modal
@@ -190,9 +190,9 @@ const App = () => {
         return `- ${project}:\n${membersText}`;
       })
       .join("\n\n");
-
-      let fileContent = `\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n`;
-    console.log(fileContent, "fileContent")
+  
+    let fileContent = `\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n`;
+  
     if (fileContent.length > 2000) {
       let fileName = "daily.yml";
       let blob = new Blob([fileContent], { type: "text/plain" });
@@ -201,21 +201,60 @@ const App = () => {
       link.download = fileName;
       link.click();
       setShowThanksMessage(true);
+  
+      // Send file to Discord
+      sendToDiscord(fileName, blob);
     } else {
-      fileContent = `\`\`\`yml\n${fileContent}\n\`\`\``;
-      // Copy the content to clipboard
+      const formattedText = `\`\`\`yml\n${fileContent}\n\`\`\``;
+  
+      // Copy to clipboard
       navigator.clipboard
-        .writeText(fileContent)
+        .writeText(formattedText)
         .then(() => {
-          // Show thank-you message after copying
           setShowThanksMessage(true);
         })
         .catch((error) => {
           console.error("Error copying to clipboard:", error);
         });
+  
+      // Send text to Discord
+      sendTextToDiscord(formattedText);
     }
-
   };
+  
+
+  // Function to send the file to Discord using webhook
+const sendToDiscord = async (fileName, blob) => {
+  const webhookUrl = process.env.REACT_APP_DISCORD_WEBHOOK_URL; // Replace with your Discord Webhook URL
+
+  const formData = new FormData();
+  formData.append("file", blob, fileName);
+
+  try {
+    await axios.post(webhookUrl, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    console.log("File sent to Discord!");
+  } catch (error) {
+    console.error("Error sending to Discord:", error);
+  }
+};
+
+const sendTextToDiscord = async (content) => {
+  const webhookUrl = process.env.REACT_APP_DISCORD_WEBHOOK_URL;
+
+  try {
+    await axios.post(webhookUrl, {
+      content,
+    });
+    console.log("Text sent to Discord!");
+  } catch (error) {
+    console.error("Error sending text to Discord:", error);
+  }
+};
+
 
   const formatTime = (seconds) => {
     const min = Math.floor(seconds / 60);
