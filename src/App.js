@@ -70,7 +70,6 @@ const App = () => {
   };
 
   const handleReset = () => {
-    setTimer(600); // Reset to 10 minutes
     setIsRunning(false); // Stop the timer
   };
 
@@ -176,6 +175,7 @@ const App = () => {
   //   setShowThanksMessage(true);
   // };
   const handleCopyToClipboard = () => {
+    handleReset(); // Stop the timer
     const today = new Date().toLocaleDateString(); // Get today's date
     const textData = Object.entries(dailyData)
       .map(([project, members]) => {
