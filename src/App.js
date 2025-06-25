@@ -27,26 +27,44 @@ const App = () => {
   const [isRunning, setIsRunning] = useState(false); // Controls if the timer is running
   const [dailyData, setDailyData] = useState({});
   const [form, setForm] = useState({
-  fait: "",
-  aFaire: "",
-  enCours: "",
-  pointsBloquants: "",
-  meteo: "",
-});
+    fait: "",
+    aFaire: "",
+    enCours: "",
+    pointsBloquants: "",
+    meteo: "",
+  });
   const [faitPar, setFaitPar] = useState("");
   const [isFormEnabled, setIsFormEnabled] = useState(false); // Disable form until "Fait par" is filled
   const [showThanksMessage, setShowThanksMessage] = useState(false); // For thank-you message after download
   const [isEditorOpen, setIsEditorOpen] = useState(false); // Modal for the JSON editor
   const [projectsData, setProjectsData] = useState(); // Will store the projects data fetched from the backend
+  const [globalRemarks, setGlobalRemarks] = useState({});
+  const [selectedGlobalRemarkProject, setSelectedGlobalRemarkProject] = useState(null);
+  const [globalCompleted, setGlobalCompleted] = useState({});
+
+  const METEO_OPTIONS = ["😎", "🔥", "💀"];
   const fetchProjectsFromFirebase = async () => {
     try {
       const querySnapshot = await getDocs(collection(db, "dailyProjects"));
-      const docs = querySnapshot.docs.map((doc) => doc.data());
-      if (docs.length > 0) {
-        setProjectsData(docs[0]);
+
+      if (!querySnapshot.empty) {
+        const firstDoc = querySnapshot.docs[0]?.data();
+
+        if (firstDoc?.projects) {
+          setProjectsData(firstDoc);
+
+          // Initialise les remarques globales
+          const initialRemarks = {};
+          firstDoc.projects.forEach((project) => {
+            initialRemarks[project.name] = { remarque: "", absent: "" };
+          });
+          setGlobalRemarks(initialRemarks);
+        }
+      } else {
+        console.warn("Aucun document trouvé dans dailyProjects");
       }
     } catch (error) {
-      console.error("Error fetching projects data:", error);
+      console.error("Erreur lors du fetch Firebase :", error);
     }
   };
   useEffect(() => {
@@ -75,6 +93,21 @@ const App = () => {
     setIsRunning(false); // Stop the timer
   };
 
+  const handleSaveGlobalRemark = () => {
+    if (!selectedGlobalRemarkProject) return;
+
+    const remarkData = globalRemarks[selectedGlobalRemarkProject];
+    const hasContent =
+      remarkData.remarque.trim() !== "" || remarkData.absent.trim() !== "";
+
+    setGlobalCompleted((prev) => ({
+      ...prev,
+      [selectedGlobalRemarkProject]: hasContent,
+    }));
+
+    setSelectedGlobalRemarkProject(null);
+  };
+
   const handleStart = () => {
     setIsRunning(true);
   };
@@ -82,11 +115,18 @@ const App = () => {
   const handleStop = () => {
     setIsRunning(false);
   };
+  const getInitialForm = () => ({
+    fait: "",
+    aFaire: "",
+    enCours: "",
+    pointsBloquants: "",
+    meteo: "",
+  });
 
   const handleProjectChange = (projectName) => {
     setSelectedProject(projectName);
     setSelectedMember(null);
-    setForm({ fait: "", remarques: "", aFaire: "" }); // Reset the form
+    setForm(getInitialForm()); // Reset the form
   };
 
   // Open the JSON editor modal
@@ -109,7 +149,7 @@ const App = () => {
     const currentIndex = project.members.indexOf(selectedMember);
     if (currentIndex + 1 < project.members.length) {
       setSelectedMember(project.members[currentIndex + 1]);
-      setForm({ fait: "", remarques: "", aFaire: "" });
+      setForm(getInitialForm()); // Reset the form for the next member
     }
   };
 
@@ -124,23 +164,23 @@ const App = () => {
     moveToNextMember();
   };
 
-const handleAbsent = () => {
-  setDailyData((prev) => ({
-    ...prev,
-    [selectedProject]: {
-      ...prev[selectedProject],
-      [selectedMember]: {
-        fait: "Absent",
-        aFaire: "",
-        enCours: "",
-        pointsBloquants: "",
-        meteo: "",
-        completed: true,
+  const handleAbsent = () => {
+    setDailyData((prev) => ({
+      ...prev,
+      [selectedProject]: {
+        ...prev[selectedProject],
+        [selectedMember]: {
+          fait: "Absent",
+          aFaire: "",
+          enCours: "",
+          pointsBloquants: "",
+          meteo: "",
+          completed: true,
+        },
       },
-    },
-  }));
-  moveToNextMember();
-};
+    }));
+    moveToNextMember();
+  };
 
 
   const handleCopyToClipboard = () => {
@@ -160,9 +200,19 @@ const handleAbsent = () => {
         return `- ${project}:\n${membersText}`;
       })
       .join("\n\n");
-  
+
     let fileContent = `\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n`;
-  
+    const remarksText = Object.entries(globalRemarks)
+      .map(([project, data]) => {
+        let content = `- ${project}:\n`;
+        if (data.remarque) content += `  📝 Remarque: ${data.remarque}\n`;
+        if (data.absent) content += `  ❌ Absent: ${data.absent}\n`;
+        return content;
+      })
+      .join("\n");
+
+    fileContent += `\n\nRemarques globales:\n${remarksText}`;
+
     if (fileContent.length > 2000) {
       let fileName = "daily.yml";
       let blob = new Blob([fileContent], { type: "text/plain" });
@@ -171,12 +221,12 @@ const handleAbsent = () => {
       link.download = fileName;
       link.click();
       setShowThanksMessage(true);
-  
+
       // Send file to Discord
       sendToDiscord(fileName, blob);
     } else {
       const formattedText = `\`\`\`yml\n${fileContent}\n\`\`\``;
-  
+
       // Copy to clipboard
       navigator.clipboard
         .writeText(formattedText)
@@ -186,44 +236,44 @@ const handleAbsent = () => {
         .catch((error) => {
           console.error("Error copying to clipboard:", error);
         });
-  
+
       // Send text to Discord
       sendTextToDiscord(formattedText);
     }
   };
-  
+
 
   // Function to send the file to Discord using webhook
-const sendToDiscord = async (fileName, blob) => {
-  const webhookUrl = process.env.REACT_APP_DISCORD_WEBHOOK_URL; // Replace with your Discord Webhook URL
+  const sendToDiscord = async (fileName, blob) => {
+    const webhookUrl = process.env.REACT_APP_DISCORD_WEBHOOK_URL;
 
-  const formData = new FormData();
-  formData.append("file", blob, fileName);
+    const formData = new FormData();
+    formData.append("file", blob, fileName);
 
-  try {
-    await axios.post(webhookUrl, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    console.log("File sent to Discord!");
-  } catch (error) {
-    console.error("Error sending to Discord:", error);
-  }
-};
+    try {
+      await axios.post(webhookUrl, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      console.log("File sent to Discord!");
+    } catch (error) {
+      console.error("Error sending to Discord:", error);
+    }
+  };
 
-const sendTextToDiscord = async (content) => {
-  const webhookUrl = process.env.REACT_APP_DISCORD_WEBHOOK_URL;
+  const sendTextToDiscord = async (content) => {
+    const webhookUrl = process.env.REACT_APP_DISCORD_WEBHOOK_URL;
 
-  try {
-    await axios.post(webhookUrl, {
-      content,
-    });
-    console.log("Text sent to Discord!");
-  } catch (error) {
-    console.error("Error sending text to Discord:", error);
-  }
-};
+    try {
+      await axios.post(webhookUrl, {
+        content,
+      });
+      console.log("Text sent to Discord!");
+    } catch (error) {
+      console.error("Error sending text to Discord:", error);
+    }
+  };
 
 
   const formatTime = (seconds) => {
@@ -335,7 +385,52 @@ const sendTextToDiscord = async (content) => {
                   </div>
                 )}
               </div>
+
             ))}
+            <Divider style={{ margin: "20px 0" }} />
+            <div>
+              <Typography variant="subtitle1" style={{ fontWeight: "bold", marginTop: 10 }}>
+                Remarques globales
+              </Typography>
+              {projectsData?.projects?.map((project) => (
+                <Box
+                  key={`global-${project.name}`}
+                  display="flex"
+                  alignItems="center"
+                  style={{
+                    marginBottom: "10px",
+                    backgroundColor:
+                      selectedGlobalRemarkProject === project.name ? "#f3e5f5" : "inherit",
+                    padding: "5px",
+                    borderRadius: "5px",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = "#e1bee7")
+                  }
+                  onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    selectedGlobalRemarkProject === project.name ? "#f3e5f5" : "inherit")
+                  }
+                  onClick={() => {
+                    setSelectedProject(null);
+                    setSelectedMember(null);
+                    setSelectedGlobalRemarkProject(project.name);
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    style={{ cursor: "pointer", marginRight: "10px" }}
+                  >
+                    {project.name}
+                  </Typography>
+                  {globalCompleted[project.name] ? (
+  <CheckCircleIcon color="success" />
+) : (
+  <HourglassEmptyIcon color="warning" />
+)}
+                </Box>
+              ))}
+            </div>
             <Divider style={{ margin: "20px 0" }} />
             <Typography variant="h6" align="center">
               Timer: {formatTime(timer)}
@@ -424,64 +519,79 @@ const sendTextToDiscord = async (content) => {
               {selectedProject && selectedMember ? (
                 <>
                   <Typography variant="h6">
-  👤 Prénom : {selectedMember} dans {selectedProject}
-</Typography>
+                    👤 Prénom : {selectedMember} dans {selectedProject}
+                  </Typography>
 
-<TextField
-  label="✅ Fait"
-  multiline
-  rows={3}
-  fullWidth
-  value={form.fait}
-  onChange={(e) => {
-    if (isRunning === false) setIsRunning(true);
-    setForm({ ...form, fait: e.target.value });
-  }}
-  style={{ marginBottom: "15px" }}
-  disabled={!isFormEnabled}
-/>
+                  <TextField
+                    label="✅ Fait"
+                    multiline
+                    rows={3}
+                    fullWidth
+                    value={form.fait}
+                    onChange={(e) => {
+                      if (isRunning === false) setIsRunning(true);
+                      setForm({ ...form, fait: e.target.value });
+                    }}
+                    style={{ marginBottom: "15px" }}
+                    disabled={!isFormEnabled}
+                  />
 
-<TextField
-  label="📌 À faire"
-  multiline
-  rows={3}
-  fullWidth
-  value={form.aFaire}
-  onChange={(e) => setForm({ ...form, aFaire: e.target.value })}
-  style={{ marginBottom: "15px" }}
-  disabled={!isFormEnabled}
-/>
+                  <TextField
+                    label="📌 À faire"
+                    multiline
+                    rows={3}
+                    fullWidth
+                    value={form.aFaire}
+                    onChange={(e) => setForm({ ...form, aFaire: e.target.value })}
+                    style={{ marginBottom: "15px" }}
+                    disabled={!isFormEnabled}
+                  />
 
-<TextField
-  label="🛠️ En cours"
-  multiline
-  rows={3}
-  fullWidth
-  value={form.enCours}
-  onChange={(e) => setForm({ ...form, enCours: e.target.value })}
-  style={{ marginBottom: "15px" }}
-  disabled={!isFormEnabled}
-/>
+                  <TextField
+                    label="🛠️ En cours"
+                    multiline
+                    rows={3}
+                    fullWidth
+                    value={form.enCours}
+                    onChange={(e) => setForm({ ...form, enCours: e.target.value })}
+                    style={{ marginBottom: "15px" }}
+                    disabled={!isFormEnabled}
+                  />
 
-<TextField
-  label="🚧 Points bloquants"
-  multiline
-  rows={3}
-  fullWidth
-  value={form.pointsBloquants}
-  onChange={(e) => setForm({ ...form, pointsBloquants: e.target.value })}
-  style={{ marginBottom: "15px" }}
-  disabled={!isFormEnabled}
-/>
+                  <TextField
+                    label="🚧 Points bloquants"
+                    multiline
+                    rows={3}
+                    fullWidth
+                    value={form.pointsBloquants}
+                    onChange={(e) => setForm({ ...form, pointsBloquants: e.target.value })}
+                    style={{ marginBottom: "15px" }}
+                    disabled={!isFormEnabled}
+                  />
 
-<TextField
-  label="🔥 Météo : 😎 / 🔥 / 💀"
-  fullWidth
-  value={form.meteo}
-  onChange={(e) => setForm({ ...form, meteo: e.target.value })}
-  style={{ marginBottom: "15px" }}
-  disabled={!isFormEnabled}
-/>
+                  <Box style={{ marginBottom: "15px" }}>
+                    <Typography variant="subtitle1" style={{ marginBottom: "5px" }}>
+                      🔥 Météo :
+                    </Typography>
+                    {METEO_OPTIONS.map((emoji) => (
+                      <Box key={emoji}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            disabled={!isFormEnabled}
+                            checked={form.meteo === emoji}
+                            onChange={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                meteo: prev.meteo === emoji ? "" : emoji, // toggle
+                              }))
+                            }
+                          />
+                          {" " + emoji}
+                        </label>
+                      </Box>
+                    ))}
+                  </Box>
                   <Grid container spacing={2}>
                     <Grid item>
                       <Button
@@ -504,11 +614,66 @@ const sendTextToDiscord = async (content) => {
                     </Grid>
                   </Grid>
                 </>
+              ) : selectedGlobalRemarkProject ? (
+                <>
+                  <Typography variant="h6">
+                    Remarques globales pour {selectedGlobalRemarkProject}
+                  </Typography>
+                  <TextField
+                    label="📝 Remarque"
+                    multiline
+                    rows={4}
+                    fullWidth
+                    value={globalRemarks[selectedGlobalRemarkProject]?.remarque || ""}
+                    onChange={(e) =>
+                      setGlobalRemarks((prev) => ({
+                        ...prev,
+                        [selectedGlobalRemarkProject]: {
+                          ...prev[selectedGlobalRemarkProject],
+                          remarque: e.target.value,
+                        },
+                      }))
+                    }
+                    style={{ marginBottom: "15px" }}
+                    disabled={!isFormEnabled}
+                  />
+                  <TextField
+                    label="❌ Absent"
+                    multiline
+                    rows={2}
+                    fullWidth
+                    value={globalRemarks[selectedGlobalRemarkProject]?.absent || ""}
+                    onChange={(e) =>
+                      setGlobalRemarks((prev) => ({
+                        ...prev,
+                        [selectedGlobalRemarkProject]: {
+                          ...prev[selectedGlobalRemarkProject],
+                          absent: e.target.value,
+                        },
+                      }))
+                    }
+                    style={{ marginBottom: "15px" }}
+                    disabled={!isFormEnabled}
+                  />
+                  <Grid container spacing={2}>
+  <Grid item>
+    <Button
+      startIcon={<SaveIcon />}
+      variant="contained"
+      onClick={handleSaveGlobalRemark}
+      disabled={!isFormEnabled}
+    >
+      SAVE
+    </Button>
+  </Grid>
+</Grid>
+                </>
               ) : (
                 <Typography variant="h6" align="center">
                   Please select a project and a member to fill the daily form.
                 </Typography>
               )}
+
             </Paper>
           )}
         </Grid>
@@ -543,7 +708,7 @@ const sendTextToDiscord = async (content) => {
         open={isEditorOpen}
         handleClose={handleCloseEditor}
         collectionPath="dailyProjects"
-        docId="FQ6HYMt3zmSnmManRtwe" 
+        docId="FQ6HYMt3zmSnmManRtwe"
       />
     </div>
   );
