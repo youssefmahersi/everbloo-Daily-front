@@ -27,10 +27,12 @@ const App = () => {
   const [isRunning, setIsRunning] = useState(false); // Controls if the timer is running
   const [dailyData, setDailyData] = useState({});
   const [form, setForm] = useState({
-    fait: "",
-    remarques: "",
-    aFaire: "",
-  });
+  fait: "",
+  aFaire: "",
+  enCours: "",
+  pointsBloquants: "",
+  meteo: "",
+});
   const [faitPar, setFaitPar] = useState("");
   const [isFormEnabled, setIsFormEnabled] = useState(false); // Disable form until "Fait par" is filled
   const [showThanksMessage, setShowThanksMessage] = useState(false); // For thank-you message after download
@@ -122,58 +124,25 @@ const App = () => {
     moveToNextMember();
   };
 
-  const handleAbsent = () => {
-    setDailyData((prev) => ({
-      ...prev,
-      [selectedProject]: {
-        ...prev[selectedProject],
-        [selectedMember]: {
-          fait: "Absent",
-          remarques: "",
-          aFaire: "",
-          completed: true,
-        },
+const handleAbsent = () => {
+  setDailyData((prev) => ({
+    ...prev,
+    [selectedProject]: {
+      ...prev[selectedProject],
+      [selectedMember]: {
+        fait: "Absent",
+        aFaire: "",
+        enCours: "",
+        pointsBloquants: "",
+        meteo: "",
+        completed: true,
       },
-    }));
-    moveToNextMember();
-  };
+    },
+  }));
+  moveToNextMember();
+};
 
-  // const handleDownload = () => {
-  //   const today = new Date().toLocaleDateString(); // Get today's date
-  //   const textData = Object.entries(dailyData)
-  //     .map(([project, members]) => {
-  //       const membersText = Object.entries(members)
-  //         .map(([member, data]) => {
-  //           if(data.fait === "Absent"){
-  //             return `${member}:\n  Fait: ${data.fait}\n`;
-  //           }
-  //           return `${member}:\n  Fait: ${data.fait}\n  Remarques: ${data.remarques}\n  A faire: ${data.aFaire}\n`;
-  //         })
-  //         .join("\n");
-  //       return `- ${project}:\n${membersText}`;
-  //     })
-  //     .join("\n\n");
-  //   const fileContent = `\nDate: ${today}\nFait par: ${faitPar}\n\n${textData}\n`;
-  //   let blob = null;
-  //   let fileName = "daily.txt";
 
-  //   if (fileContent.length < 2000) {
-  //     fileName = "daily.txt";
-  //     blob = new Blob([`\`\`\`yml\n${fileContent}\n\`\`\``], {
-  //       type: "text/plain",
-  //     });
-  //   } else {
-  //     fileName = "daily.yml";
-  //     blob = new Blob([fileContent], { type: "text/plain" });
-  //   }
-  //   const link = document.createElement("a");
-  //   link.href = URL.createObjectURL(blob);
-  //   link.download = fileName;
-  //   link.click();
-
-  //   // Show thank-you message after download
-  //   setShowThanksMessage(true);
-  // };
   const handleCopyToClipboard = () => {
     handleReset(); // Stop the timer
     const today = new Date().toLocaleDateString(); // Get today's date
@@ -184,7 +153,8 @@ const App = () => {
             if (data.fait === "Absent") {
               return `${member}:\n  Fait: ${data.fait}\n`;
             }
-            return `${member}:\n  Fait: ${data.fait}\n  Remarques: ${data.remarques}\n  A faire: ${data.aFaire}\n`;
+            return `${member}:\n  ✅ Fait: ${data.fait}\n  📌 À faire: ${data.aFaire}\n  🛠️ En cours: ${data.enCours}\n  🚧 Points bloquants: ${data.pointsBloquants}\n  🔥 Météo: ${data.meteo}\n`;
+
           })
           .join("\n");
         return `- ${project}:\n${membersText}`;
@@ -454,47 +424,64 @@ const sendTextToDiscord = async (content) => {
               {selectedProject && selectedMember ? (
                 <>
                   <Typography variant="h6">
-                    Fill Daily for {selectedMember} in {selectedProject}
-                  </Typography>
-                  <TextField
-                    label="Fait"
-                    multiline
-                    rows={4}
-                    fullWidth
-                    value={form.fait}
-                    onChange={(e) => {
-                      if (isRunning === false) {
-                        setIsRunning(true);
-                      }
-                      setForm({ ...form, fait: e.target.value });
-                    }}
-                    style={{ marginBottom: "15px" }}
-                    disabled={!isFormEnabled}
-                  />
-                  <TextField
-                    label="Remarques"
-                    multiline
-                    rows={4}
-                    fullWidth
-                    value={form.remarques}
-                    onChange={(e) =>
-                      setForm({ ...form, remarques: e.target.value })
-                    }
-                    style={{ marginBottom: "15px" }}
-                    disabled={!isFormEnabled}
-                  />
-                  <TextField
-                    label="A faire"
-                    multiline
-                    rows={4}
-                    fullWidth
-                    value={form.aFaire}
-                    onChange={(e) =>
-                      setForm({ ...form, aFaire: e.target.value })
-                    }
-                    style={{ marginBottom: "15px" }}
-                    disabled={!isFormEnabled}
-                  />
+  👤 Prénom : {selectedMember} dans {selectedProject}
+</Typography>
+
+<TextField
+  label="✅ Fait"
+  multiline
+  rows={3}
+  fullWidth
+  value={form.fait}
+  onChange={(e) => {
+    if (isRunning === false) setIsRunning(true);
+    setForm({ ...form, fait: e.target.value });
+  }}
+  style={{ marginBottom: "15px" }}
+  disabled={!isFormEnabled}
+/>
+
+<TextField
+  label="📌 À faire"
+  multiline
+  rows={3}
+  fullWidth
+  value={form.aFaire}
+  onChange={(e) => setForm({ ...form, aFaire: e.target.value })}
+  style={{ marginBottom: "15px" }}
+  disabled={!isFormEnabled}
+/>
+
+<TextField
+  label="🛠️ En cours"
+  multiline
+  rows={3}
+  fullWidth
+  value={form.enCours}
+  onChange={(e) => setForm({ ...form, enCours: e.target.value })}
+  style={{ marginBottom: "15px" }}
+  disabled={!isFormEnabled}
+/>
+
+<TextField
+  label="🚧 Points bloquants"
+  multiline
+  rows={3}
+  fullWidth
+  value={form.pointsBloquants}
+  onChange={(e) => setForm({ ...form, pointsBloquants: e.target.value })}
+  style={{ marginBottom: "15px" }}
+  disabled={!isFormEnabled}
+/>
+
+<TextField
+  label="🔥 Météo : 😎 / 🔥 / 💀"
+  fullWidth
+  value={form.meteo}
+  onChange={(e) => setForm({ ...form, meteo: e.target.value })}
+  style={{ marginBottom: "15px" }}
+  disabled={!isFormEnabled}
+/>
                   <Grid container spacing={2}>
                     <Grid item>
                       <Button
@@ -555,8 +542,8 @@ const sendTextToDiscord = async (content) => {
       <JsonEditorModal
         open={isEditorOpen}
         handleClose={handleCloseEditor}
-        collectionPath="dailyProjects" // Firestore collection path
-        docId="FQ6HYMt3zmSnmManRtwe" // Firestore document ID
+        collectionPath="dailyProjects"
+        docId="FQ6HYMt3zmSnmManRtwe" 
       />
     </div>
   );
